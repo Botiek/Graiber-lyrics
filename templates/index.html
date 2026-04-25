@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Грайбер — Whisper LRC</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #6c63ff;
+      --accent-hover: #5a52e0;
+      --success: #3ecf8e;
+      --error: #ff5c5c;
+      --warn: #f5a623;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #6c63ff, #3ecf8e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      width: 100%;
+      max-width: 700px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+    }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(108, 99, 255, 0.06);
+    }
+
+    #drop-zone.has-file {
+      border-color: var(--success);
+      background: rgba(62, 207, 142, 0.04);
+    }
+
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+
+    .drop-label {
+      font-size: 1rem;
+      color: var(--text);
+    }
+
+    .drop-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    #file-name {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: var(--success);
+      font-weight: 500;
+      display: none;
+    }
+
+    /* Settings */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 480px) {
+      .settings-grid { grid-template-columns: 1fr; }
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .field select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238892a4' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .field select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Button */
+    #btn-transcribe {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+
+    #btn-transcribe:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    #btn-transcribe:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    #btn-transcribe:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Progress */
+    #progress-card { display: none; }
+
+    .progress-bar-wrap {
+      background: var(--surface2);
+      border-radius: 100px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 100px;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      width: 0%;
+      transition: width 0.4s;
+    }
+
+    .progress-bar.indeterminate {
+      width: 40%;
+      animation: slide 1.4s ease-in-out infinite;
+    }
+
+    @keyframes slide {
+      0%   { margin-left: -40%; }
+      100% { margin-left: 100%; }
+    }
+
+    #log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      height: 160px;
+      overflow-y: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .log-line { color: var(--muted); }
+    .log-line.lrc { color: var(--text); }
+    .log-line.success { color: var(--success); font-weight: 600; }
+    .log-line.error { color: var(--error); font-weight: 600; }
+
+    /* Result */
+    #result-card { display: none; }
+
+    #lrc-output {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      padding: 14px;
+      resize: vertical;
+      min-height: 280px;
+      outline: none;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .btn-secondary {
+      flex: 1;
+      padding: 11px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    #btn-copy {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    #btn-copy:hover { background: var(--border); }
+
+    #btn-download {
+      background: var(--success);
+      color: #0f1117;
+      border-color: var(--success);
+    }
+
+    #btn-download:hover { opacity: 0.88; }
+
+    #btn-reset {
+      background: transparent;
+      color: var(--muted);
+      border-color: var(--border);
+    }
+
+    #btn-reset:hover { color: var(--text); border-color: var(--muted); }
+
+    .stems-row { margin-top: 16px; }
+
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-wrap input { display: none; }
+
+    .toggle-slider {
+      width: 40px;
+      height: 22px;
+      background: var(--border);
+      border-radius: 100px;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle-wrap input:checked + .toggle-slider { background: var(--accent); }
+    .toggle-wrap input:checked + .toggle-slider::after { transform: translateX(18px); }
+
+    .toggle-label { font-size: 0.92rem; color: var(--text); }
+
+    .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .result-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .shift-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .shift-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-right: 4px;
+    }
+
+    .shift-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .shift-btn:hover { background: var(--border); border-color: var(--accent); }
+
+    .shift-reset { color: var(--muted); font-size: 1rem; }
+    .shift-reset:hover { color: var(--warn); border-color: var(--warn); }
+
+    #shift-ms {
+      width: 90px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: 0.92rem;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #shift-ms:focus { border-color: var(--accent); }
+
+    .shift-unit { font-size: 0.82rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎵 Грайбер</h1>
+  <p>Транскрибирование песен в LRC с таймингом — на базе Whisper</p>
+</header>
+
+<!-- Upload -->
+<div class="card">
+  <h2>Аудио файл</h2>
+  <div id="drop-zone">
+    <input type="file" id="file-input" accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,.wma,.opus" />
+    <div class="drop-icon">🎧</div>
+    <div class="drop-label">Перетащи файл или нажми для выбора</div>
+    <div class="drop-sub">MP3, WAV, FLAC, M4A, OGG, AAC — до 500 МБ</div>
+    <div id="file-name"></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="card">
+  <h2>Настройки</h2>
+  <div class="settings-grid">
+    <div class="field">
+      <label>Бэкенд</label>
+      <select id="backend">
+        <option value="whisper">Whisper — стандарт</option>
+        <option value="whisperx">WhisperX — точный тайминг ⚡</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Модель</label>
+      <select id="model">
+        <option value="tiny">tiny — очень быстро</option>
+        <option value="base">base — быстро</option>
+        <option value="small">small — баланс</option>
+        <option value="medium" selected>medium — хорошее качество</option>
+        <option value="large">large — высокое качество</option>
+        <option value="large-v2">large-v2</option>
+        <option value="large-v3">large-v3 — лучшее</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Язык</label>
+      <select id="language">
+        <option value="">Авто-определение</option>
+        <option value="ru">Русский</option>
+        <option value="uk">Украинский</option>
+        <option value="en">English</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+        <option value="es">Español</option>
+        <option value="ja">日本語</option>
+        <option value="zh">中文</option>
+        <option value="ko">한국어</option>
+        <option value="tr">Türkçe</option>
+        <option value="ar">العربية</option>
+      </select>
+    </div>
+    <div class="field" id="word-level-field" style="display:none">
+      <label>Формат LRC</label>
+      <select id="word_level">
+        <option value="false">По фразам (стандарт)</option>
+        <option value="true">По словам (каждое слово)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Stem separation -->
+  <div class="stems-row">
+    <label class="toggle-wrap">
+      <input type="checkbox" id="use_stems" />
+      <span class="toggle-slider"></span>
+      <span class="toggle-label">Выделить вокал перед транскрибацией <span class="badge">UVR5</span></span>
+    </label>
+  </div>
+  <div id="stems-options" style="display:none">
+    <div class="field" style="margin-top:12px">
+      <label>Модель разделения</label>
+      <select id="stem_model">
+        <option value="UVR-MDX-NET-Inst_HQ_3">MDX-NET Inst HQ 3 — универсальный</option>
+        <option value="UVR-MDX-NET-Voc_FT">MDX-NET Voc FT — оптимизирован для вокала</option>
+        <option value="Kim_Vocal_2">Kim Vocal 2 — популярный</option>
+      </select>
+    </div>
+  </div>
+
+  <br />
+  <button id="btn-transcribe" disabled>Транскрибировать</button>
+</div>
+
+<!-- Progress -->
+<div class="card" id="progress-card">
+  <h2>Прогресс</h2>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar indeterminate" id="progress-bar"></div>
+  </div>
+  <div id="log"></div>
+</div>
+
+<!-- Result -->
+<div class="card" id="result-card">
+  <h2>Результат</h2>
+  <textarea id="lrc-output" spellcheck="false" readonly></textarea>
+  <div class="result-meta" id="result-meta"></div>
+
+  <div class="shift-row">
+    <span class="shift-label">Сдвиг таймингов</span>
+    <button class="shift-btn" id="btn-shift-minus" title="Вычесть">−</button>
+    <input type="number" id="shift-ms" value="500" min="0" max="60000" step="100" />
+    <span class="shift-unit">мс</span>
+    <button class="shift-btn" id="btn-shift-plus" title="Прибавить">+</button>
+    <button class="shift-btn shift-reset" id="btn-shift-reset" title="Сбросить к оригиналу">↺</button>
+  </div>
+
+  <div class="result-actions">
+    <button class="btn-secondary" id="btn-copy">Копировать</button>
+    <button class="btn-secondary" id="btn-download">Скачать .lrc</button>
+    <button class="btn-secondary" id="btn-reset">Новый файл</button>
+  </div>
+</div>
+
+<script>
+  let currentJobId = null;
+  let lrcLines = [];
+  let selectedFile = null;
+
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const fileName = document.getElementById('file-name');
+  const btnTranscribe = document.getElementById('btn-transcribe');
+  const progressCard = document.getElementById('progress-card');
+  const resultCard = document.getElementById('result-card');
+  const log = document.getElementById('log');
+  const progressBar = document.getElementById('progress-bar');
+  const lrcOutput = document.getElementById('lrc-output');
+  const resultMeta = document.getElementById('result-meta');
+
+  // Show word-level option only for WhisperX
+  document.getElementById('backend').addEventListener('change', function() {
+    document.getElementById('word-level-field').style.display =
+      this.value === 'whisperx' ? 'block' : 'none';
+  });
+
+  // Show stem model selector when stems enabled
+  document.getElementById('use_stems').addEventListener('change', function() {
+    document.getElementById('stems-options').style.display =
+      this.checked ? 'block' : 'none';
+  });
+
+  // Drag & drop
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) setFile(file);
+  });
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  function setFile(file) {
+    selectedFile = file;
+    dropZone.classList.add('has-file');
+    fileName.textContent = `✓ ${file.name}`;
+    fileName.style.display = 'block';
+    btnTranscribe.disabled = false;
+  }
+
+  // Transcribe
+  btnTranscribe.addEventListener('click', async () => {
+    const file = selectedFile;
+    if (!file) return;
+
+    lrcLines = [];
+    log.innerHTML = '';
+    lrcOutput.value = '';
+    progressCard.style.display = 'block';
+    resultCard.style.display = 'none';
+    btnTranscribe.disabled = true;
+    progressBar.className = 'progress-bar indeterminate';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model', document.getElementById('model').value);
+    formData.append('language', document.getElementById('language').value);
+    formData.append('backend', document.getElementById('backend').value);
+    formData.append('word_level', document.getElementById('word_level').value);
+    formData.append('use_stems', document.getElementById('use_stems').checked);
+    formData.append('stem_model', document.getElementById('stem_model').value);
+
+    addLog(`Загрузка файла «${file.name}»...`, 'log-line');
+
+    let resp;
+    try {
+      resp = await fetch('/upload', { method: 'POST', body: formData });
+    } catch (e) {
+      addLog('Ошибка соединения: ' + e.message, 'log-line error');
+      btnTranscribe.disabled = false;
+      return;
+    }
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      addLog('Ошибка: ' + data.error, 'log-line error');
+      btnTranscribe.disabled = false;
+      return;
+    }
+
+    currentJobId = data.job_id;
+    addLog('Файл загружен. Запускаю транскрибирование...', 'log-line');
+    listenProgress(currentJobId);
+  });
+
+  function handleMsg(msg) {
+    if (msg.type === 'ping') return;
+    if (msg.type === 'log') {
+      addLog(msg.msg, 'log-line');
+    } else if (msg.type === 'line') {
+      lrcLines.push(msg.msg);
+      addLog(msg.msg, 'log-line lrc');
+      lrcOutput.value = lrcLines.join('\n');
+    } else if (msg.type === 'done') {
+      addLog('✓ ' + msg.msg, 'log-line success');
+      progressBar.className = 'progress-bar';
+      progressBar.style.width = '100%';
+      resultCard.style.display = 'block';
+      resultMeta.textContent = `${lrcLines.length} строк • ${lrcOutput.value.length} символов`;
+      btnTranscribe.disabled = false;
+      scrollToResult();
+      return true; // done
+    } else if (msg.type === 'error') {
+      addLog('Ошибка: ' + msg.msg, 'log-line error');
+      progressBar.className = 'progress-bar';
+      progressBar.style.background = 'var(--error)';
+      progressBar.style.width = '100%';
+      btnTranscribe.disabled = false;
+      return true; // done
+    }
+    return false;
+  }
+
+  function listenProgress(jobId) {
+    let pollTimer = null;
+    let sseOk = false;
+    let done = false;
+
+    // SSE primary
+    const es = new EventSource(`/progress/${jobId}`);
+
+    es.onmessage = (event) => {
+      sseOk = true;
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      try {
+        const msg = JSON.parse(event.data);
+        if (handleMsg(msg)) { done = true; es.close(); }
+      } catch(e) {}
+    };
+
+    es.onerror = () => {
+      es.close();
+      if (!done) {
+        addLog('SSE недоступен, переключаюсь на polling...', 'log-line');
+        startPolling(jobId);
+      }
+    };
+
+    // Fallback: if SSE delivers no message in 5s, start polling anyway
+    setTimeout(() => {
+      if (!sseOk && !done) {
+        es.close();
+        addLog('SSE не ответил, переключаюсь на polling...', 'log-line');
+        startPolling(jobId);
+      }
+    }, 5000);
+  }
+
+  function startPolling(jobId) {
+    let lastLen = 0;
+    const timer = setInterval(async () => {
+      try {
+        const r = await fetch(`/status/${jobId}`);
+        const data = await r.json();
+
+        if (data.lrc) {
+          const allLines = data.lrc.split('\n').filter(l => l.trim());
+          const newLines = allLines.slice(lastLen);
+          newLines.forEach(l => {
+            lrcLines.push(l);
+            addLog(l, 'log-line lrc');
+          });
+          if (allLines.length > lastLen) {
+            lrcOutput.value = allLines.join('\n');
+            lastLen = allLines.length;
+          }
+        }
+
+        if (data.status === 'done') {
+          clearInterval(timer);
+          handleMsg({ type: 'done', msg: `Done! ${lrcLines.length} lines` });
+        } else if (data.status === 'error') {
+          clearInterval(timer);
+          handleMsg({ type: 'error', msg: 'Transcription failed. Check terminal for details.' });
+        }
+      } catch(e) {
+        addLog('Polling error: ' + e.message, 'log-line error');
+        clearInterval(timer);
+        btnTranscribe.disabled = false;
+      }
+    }, 2000);
+  }
+
+  function addLog(text, cls) {
+    const div = document.createElement('div');
+    div.className = cls;
+    div.textContent = text;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function scrollToResult() {
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Timing shift
+  let originalLrc = '';
+
+  function lrcToMs(tag) {
+    // tag = "MM:SS.cs" e.g. "01:23.45"
+    const [minSec, cs] = tag.split('.');
+    const [min, sec] = minSec.split(':').map(Number);
+    return (min * 60 + sec) * 1000 + Number((cs || '0').padEnd(3, '0').slice(0, 3));
+  }
+
+  function msToLrc(ms) {
+    ms = Math.max(0, ms);
+    const totalCs = Math.round(ms / 10);
+    const cs = totalCs % 100;
+    const totalSec = Math.floor(totalCs / 100);
+    const sec = totalSec % 60;
+    const min = Math.floor(totalSec / 60);
+    return `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
+  }
+
+  function shiftLrc(lrcText, deltaMs) {
+    return lrcText.replace(/\[(\d{2}:\d{2}\.\d{2})\]/g, (_, tag) => {
+      return `[${msToLrc(lrcToMs(tag) + deltaMs)}]`;
+    });
+  }
+
+  function applyShift(deltaMs) {
+    const base = originalLrc || lrcOutput.value;
+    if (!base.trim()) return;
+    if (!originalLrc) originalLrc = base;
+    lrcOutput.value = shiftLrc(originalLrc, deltaMs);
+    const shifted = deltaMs >= 0 ? `+${deltaMs}` : `${deltaMs}`;
+    document.getElementById('result-meta').textContent =
+      `${lrcLines.length} строк  •  сдвиг: ${shifted} мс`;
+  }
+
+  document.getElementById('btn-shift-plus').addEventListener('click', () => {
+    const ms = parseInt(document.getElementById('shift-ms').value) || 0;
+    applyShift(getCurrentShift() + ms);
+  });
+
+  document.getElementById('btn-shift-minus').addEventListener('click', () => {
+    const ms = parseInt(document.getElementById('shift-ms').value) || 0;
+    applyShift(getCurrentShift() - ms);
+  });
+
+  document.getElementById('btn-shift-reset').addEventListener('click', () => {
+    if (!originalLrc) return;
+    lrcOutput.value = originalLrc;
+    originalLrc = '';
+    document.getElementById('result-meta').textContent =
+      `${lrcLines.length} строк • сдвиг сброшен`;
+  });
+
+  function getCurrentShift() {
+    if (!originalLrc) return 0;
+    // compare first timestamp of current vs original to get accumulated shift
+    const origTag = originalLrc.match(/\[(\d{2}:\d{2}\.\d{2})\]/);
+    const curTag  = lrcOutput.value.match(/\[(\d{2}:\d{2}\.\d{2})\]/);
+    if (!origTag || !curTag) return 0;
+    return lrcToMs(curTag[1]) - lrcToMs(origTag[1]);
+  }
+
+  // Copy
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(lrcOutput.value);
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = 'Скопировано ✓';
+    setTimeout(() => { btn.textContent = 'Копировать'; }, 2000);
+  });
+
+  // Download
+  document.getElementById('btn-download').addEventListener('click', () => {
+    if (currentJobId) window.location.href = `/download/${currentJobId}`;
+  });
+
+  // Reset
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    fileInput.value = '';
+    dropZone.classList.remove('has-file');
+    fileName.style.display = 'none';
+    fileName.textContent = '';
+    btnTranscribe.disabled = true;
+    progressCard.style.display = 'none';
+    resultCard.style.display = 'none';
+    lrcLines = [];
+    currentJobId = null;
+    originalLrc = '';
+    progressBar.style.width = '0';
+    progressBar.style.background = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+
+</body>
+</html>

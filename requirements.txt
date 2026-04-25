@@ -1,0 +1,8 @@
+# Graiber - extra dependencies
+# Main packages (torch, whisper, whisperx, flask, imageio-ffmpeg, audio-separator)
+# are installed directly in install.bat for better error handling.
+
+# Audio utilities
+librosa>=0.10.0
+soundfile>=0.12.1
+pydub>=0.25.1
